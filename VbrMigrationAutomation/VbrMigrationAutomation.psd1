@@ -56,7 +56,7 @@
             Tags         = @('Veeam', 'VBR', 'Backup', 'Migration', 'REST', 'API')
             LicenseUri   = ''
             ProjectUri   = ''
-            ReleaseNotes = 'Pre-release. Initial module restructure from script-based layout.'
+            ReleaseNotes = 'Pre-release (0.x, in testing). See CHANGELOG.md for changes per version.'
         }
     }
 }

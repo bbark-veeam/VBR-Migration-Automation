@@ -1,0 +1,13 @@
+{
+    "SourceServer": {
+        "Hostname": "vbr-source.domain.local",
+        "Port": 9419
+    },
+    "TargetServer": {
+        "Hostname": "vbr-target.domain.local",
+        "Port": 9419
+    },
+    "OutputPath": ".\\output",
+    "SessionPollIntervalSeconds": 5,
+    "SessionTimeoutSeconds": 300
+}

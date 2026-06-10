@@ -1,0 +1,75 @@
+# =============================================================================
+# This project moves VBR configuration (and forwards credential passwords at
+# runtime). Treat the repo as PUBLIC from commit #1 — if it ever flips from
+# private to public, the ENTIRE history goes public too. Nothing environment-
+# specific or secret should ever be committed; the rules below enforce that.
+# =============================================================================
+
+# --- Export / run artifacts --------------------------------------------------
+# Per-migration-run data: source/target FQDNs, UUID references, structural
+# exports, credential + cloud-credential + encryption-password metadata.
+# Veeam omits plaintext secrets by design, but these are still environment-
+# specific and must never be committed. Default OutputPath is ./output.
+output/
+
+# Defense-in-depth: the sensitive export filenames, in case someone points
+# -OutputPath inside the repo instead of ./output.
+Credentials.json
+CloudCredentials.json
+EncryptionPasswords.json
+ManagedServers.json
+Jobs.json
+AgentJobs.json
+AgentProtectionGroups.json
+Proxies.json
+Repositories.json
+
+# Diagnostic dumps written for troubleshooting — may contain FQDNs / resolved UUIDs.
+_*.posted.json
+_metadata.json
+
+# --- Real config (keep ONLY the sanitized example) ---------------------------
+config.json
+config/config.json
+config.*.json
+config/config.*.json
+!config.example.json
+!config/config.example.json
+
+# --- Secret material (must never be committed) -------------------------------
+# Veeam configuration backups (encrypted, but environment-sensitive).
+*.bco
+# PowerShell credential / SecureString exports.
+*.clixml
+*.cred
+*.credential
+# Generic secrets / env files.
+.env
+*.env
+secrets.json
+*.secret
+*.pem
+*.key
+*.pfx
+
+# --- Per-run logs / transcripts ----------------------------------------------
+*.log
+*.transcript
+
+# --- Editor / IDE local files ------------------------------------------------
+.vs/
+.vscode/
+.idea/
+
+# --- OS artifacts ------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# --- Backup / temp files -----------------------------------------------------
+*.bak
+*.tmp
+*~
+
+# --- Pester test artefacts ---------------------------------------------------
+testResults.xml
+coverage.xml

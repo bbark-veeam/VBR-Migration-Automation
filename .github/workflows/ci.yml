@@ -1,0 +1,83 @@
+name: CI
+
+# Runs on every push and PR. Three independent gates:
+#   secrets — gitleaks scan over the FULL git history (this repo forwards
+#             credential passwords at runtime; a leaked secret in history is the
+#             top risk, especially before the repo is ever made public).
+#   lint    — PSScriptAnalyzer, failing on errors + the credential-handling rules.
+#   test    — Pester unit tests in ./tests.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history, not just the tip
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Personal-account repos (bbark-veeam) need no license. If this repo is
+          # ever transferred to a GitHub ORG, add a free GITLEAKS_LICENSE secret:
+          #   GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  lint:
+    name: PowerShell analysis (PSScriptAnalyzer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -ErrorAction Stop
+      - name: Analyze
+        shell: pwsh
+        run: |
+          $results = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Warning,Error
+          if ($results) { $results | Format-Table -AutoSize | Out-String | Write-Host }
+
+          # Fail the build on any Error, and on the credential-handling rules
+          # regardless of severity (this project forwards passwords).
+          $blockingRules = @(
+            'PSAvoidUsingPlainTextForPassword',
+            'PSAvoidUsingConvertToSecureStringWithPlainText',
+            'PSAvoidUsingUsernameAndPasswordParams',
+            'PSUsePSCredentialType'
+          )
+          $blocking = $results | Where-Object {
+            $_.Severity -eq 'Error' -or $blockingRules -contains $_.RuleName
+          }
+          if ($blocking) {
+            Write-Host "::error::PSScriptAnalyzer found $($blocking.Count) blocking issue(s)."
+            exit 1
+          }
+          Write-Host "PSScriptAnalyzer: no blocking issues."
+
+  test:
+    name: Tests (Pester)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Pester
+        shell: pwsh
+        run: Install-Module Pester -MinimumVersion 5.0.0 -Force -Scope CurrentUser -ErrorAction Stop
+      - name: Run Pester
+        shell: pwsh
+        run: |
+          # Unit tests only — they must not require a live VBR server or the
+          # Veeam module. If a test needs Veeam cmdlets, mock them.
+          $cfg = New-PesterConfiguration
+          $cfg.Run.Path      = './tests'
+          $cfg.Run.Exit      = $true
+          $cfg.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $cfg

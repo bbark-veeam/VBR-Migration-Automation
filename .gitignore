@@ -56,6 +56,11 @@ secrets.json
 *.log
 *.transcript
 
+# --- Internal project notes (never shipped, never public) ---------------------
+# Test plans, project notes, handoff manifests. These reference customer
+# engagements and lab topology (FQDNs, IPs) and must stay out of the repo.
+internal/
+
 # --- Editor / IDE local files ------------------------------------------------
 .vs/
 .vscode/

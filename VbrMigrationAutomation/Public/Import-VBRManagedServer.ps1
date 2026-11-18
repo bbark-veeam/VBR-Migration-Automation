@@ -59,6 +59,8 @@ function Import-VBRManagedServer {
         return
     }
 
+    Resolve-VBRVsaWindowsCredential -Connection $Connection -Payload $payload
+
     Write-Host "Importing ManagedServers from $inFile (importing $remaining, skipped $totalSkipped)..."
 
     $rawJson = $payload | ConvertTo-Json -Depth 20

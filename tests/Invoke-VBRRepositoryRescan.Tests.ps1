@@ -43,6 +43,21 @@ Describe 'Invoke-VBRRepositoryRescan' {
         Should -Invoke Invoke-AutomationSession -Times 0
     }
 
+    It 'lists repositories already on the target without offering them, and offers only new ones' {
+        Mock Read-Host { 'y' }
+        Invoke-VBRRepositoryRescan -Connection $conn -RepositoryNames @('Win-Repo') -ExistingRepositoryNames @('Default Backup Repository')
+        Should -Invoke Read-Host -Times 1 -Exactly
+        Should -Invoke Invoke-AutomationSession -Times 1 -ParameterFilter { (@($Body.repositoryIds) -join ',') -eq 'id-winrepo' }
+        Should -Invoke Write-Host -ParameterFilter { $Object -like '*Not offered for rescan*Default Backup Repository*' }
+    }
+
+    It 'only notes existing repositories on a re-run where nothing was imported' {
+        Mock Read-Host { throw 'should not prompt' }
+        Invoke-VBRRepositoryRescan -Connection $conn -RepositoryNames @() -ExistingRepositoryNames @('Win-Repo', 'Hardened Repo')
+        Should -Invoke Invoke-AutomationSession -Times 0
+        Should -Invoke Write-Host -ParameterFilter { $Object -like '*Not offered for rescan*Win-Repo, Hardened Repo*' }
+    }
+
     It 'skips without prompting when none of the names exist on the target' {
         Mock Read-Host { throw 'should not prompt' }
         Invoke-VBRRepositoryRescan -Connection $conn -RepositoryNames @('Missing-Repo')

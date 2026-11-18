@@ -95,6 +95,12 @@ function Import-VBRMigration {
         throw "Automation endpoint check failed (HTTP $statusCode): $($_.Exception.Message)"
     }
 
+    Write-Host "`n--- Pre-check: certificate-paired appliances ---"
+    Test-VBRPairedApplianceHost -Connection $conn -InputPath $InputPath -TargetVBR $Server
+
+    Write-Host "`n--- Pre-check: Windows host credentials (VSA target) ---"
+    Test-VBRVsaWindowsCredential -Connection $conn -InputPath $InputPath
+
     $reposBefore = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $repoSnapshotOk = $true
     try {
@@ -139,7 +145,9 @@ function Import-VBRMigration {
                                    Where-Object { $_.name } | ForEach-Object { $_.name })
         }
         $importedRepoNames = @($exportedRepoNames | Where-Object { -not $reposBefore.Contains($_) } | Sort-Object -Unique)
-        Invoke-VBRRepositoryRescan -Connection $conn -RepositoryNames $importedRepoNames -Quiet:$Quiet
+        $existingRepoNames = @($exportedRepoNames | Where-Object { $reposBefore.Contains($_) } | Sort-Object -Unique)
+        Invoke-VBRRepositoryRescan -Connection $conn -RepositoryNames $importedRepoNames `
+            -ExistingRepositoryNames $existingRepoNames -Quiet:$Quiet
     }
 
     Write-Host "`nImport complete."

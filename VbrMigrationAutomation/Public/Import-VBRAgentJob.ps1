@@ -12,6 +12,7 @@
 #   3. Queries each protection group's discoveredEntities to build a
 #      name -> entity-id map
 #   4. Substitutes computer-level IDs everywhere they appear in the job body
+#   5. Maps each backupRepositoryId to the same-named repository's ID on the target
 #
 # Re-runs are safe: jobs already on the target (matched by name) are skipped.
 
@@ -157,6 +158,17 @@ function Import-VBRAgentJob {
         return $true
     }
 
+    $targetRepos = @()
+    try {
+        $targetRepos = @(Get-VBRPaginatedData -Connection $Connection -Endpoint '/backupInfrastructure/repositories')
+    } catch {
+        Write-Warning "  Could not list target repositories — repository references can't be checked: $($_.Exception.Message)"
+    }
+    try {
+        $targetRepos += @(Get-VBRPaginatedData -Connection $Connection -Endpoint '/backupInfrastructure/scaleOutRepositories')
+    } catch { }
+    $repoResolver = New-VBRRepositoryIdResolver -InputPath $InputPath -TargetRepositories $targetRepos
+
     Write-Host "Importing Agent Jobs..."
 
     $created      = 0
@@ -193,8 +205,14 @@ function Import-VBRAgentJob {
             }
         }
 
+        $badRepos = @(Update-VBRJobRepositoryId -Job $job -Resolver $repoResolver)
+        foreach ($r in $badRepos) {
+            Write-Warning "  Job '$($job.name)': backup repository $r is not on the target."
+            $allResolved = $false
+        }
+
         if (-not $allResolved) {
-            Write-Warning "  Skipping job '$($job.name)' — one or more computer references could not be resolved on the target. See warnings above."
+            Write-Warning "  Skipping job '$($job.name)' — one or more computer or repository references could not be resolved on the target. See warnings above."
             $failedCount++
             continue
         }

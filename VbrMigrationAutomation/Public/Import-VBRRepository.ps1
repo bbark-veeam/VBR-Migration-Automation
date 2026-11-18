@@ -88,6 +88,10 @@ function Import-VBRRepository {
         }
     }
 
+    # The target's own entry may differ in case from -Server (e.g. a VSA lists
+    # itself in lower case); mount server names are validated case-sensitively.
+    $targetName = if ($targetSelf -and $targetSelf.name) { [string]$targetSelf.name } else { $TargetVBR }
+
     # Gateway remap when source VBR is the gateway.
     if ($SourceVBR -and $TargetVBR -and $targetId) {
         $remapped = 0
@@ -101,13 +105,13 @@ function Import-VBRRepository {
 
                 if (-not $isSourceGateway) { continue }
 
-                Write-Host "  Remapping gateway for '$($repo.name)' from $SourceVBR -> $TargetVBR"
+                Write-Host "  Remapping gateway for '$($repo.name)' from $SourceVBR -> $targetName"
 
                 if ($targetSelf.type -eq 'WindowsHost') {
                     $repo.mountServer = [pscustomobject]@{
                         mountServerSettingsType = 'Windows'
                         windows = [pscustomobject]@{
-                            mountServerName       = $TargetVBR
+                            mountServerName       = $targetName
                             writeCacheFolder      = 'C:\ProgramData\Veeam\Backup\IRCache\'
                             vPowerNFSEnabled      = $true
                             vPowerNFSPortSettings = [pscustomobject]@{
@@ -120,7 +124,7 @@ function Import-VBRRepository {
                     $repo.mountServer = [pscustomobject]@{
                         mountServerSettingsType = 'Linux'
                         linux = [pscustomobject]@{
-                            mountServerName       = $TargetVBR
+                            mountServerName       = $targetName
                             writeCacheFolder      = '/var/lib/veeamdata/veeam/IRCache/'
                             vPowerNFSEnabled      = $true
                             vPowerNFSPortSettings = [pscustomobject]@{
@@ -137,7 +141,7 @@ function Import-VBRRepository {
 
                 if ($repo.account.connectionSettings.gatewayServers) {
                     $newGateways = @($repo.account.connectionSettings.gatewayServers | ForEach-Object {
-                        if ($_ -ieq $SourceVBR) { $TargetVBR } else { $_ }
+                        if ($_ -ieq $SourceVBR) { $targetName } else { $_ }
                     })
                     $repo.account.connectionSettings.gatewayServers = $newGateways
                 }

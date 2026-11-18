@@ -1,6 +1,9 @@
 # Invoke-VBRRepositoryRescan
 # Offers to rescan the repositories an import created on the target, so the
 # backups already stored in them show up (under Backups > Disk (Imported)).
+# Repositories from the export that were already on the target (the target's
+# own, or ones from an earlier, interrupted run) are not offered; they are
+# listed so they can be rescanned from the console if needed.
 # Importing a repository through the Automation API does not import its
 # existing backups. Declining leaves the repositories in place; they can be
 # rescanned later from the console when the data is needed.
@@ -12,9 +15,15 @@ function Invoke-VBRRepositoryRescan {
     param(
         [Parameter(Mandatory)] [PSCustomObject] $Connection,
         [Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $RepositoryNames,
+        [AllowEmptyCollection()] [string[]] $ExistingRepositoryNames = @(),
         [int]    $TimeoutSeconds = 7200,
         [switch] $Quiet
     )
+
+    if ($ExistingRepositoryNames.Count -gt 0) {
+        Write-Host "  Not offered for rescan (already on the target when this run started): $($ExistingRepositoryNames -join ', ')."
+        Write-Host "  Rescan them from the console if their backups aren't visible yet."
+    }
 
     if ($RepositoryNames.Count -eq 0) {
         Write-Host "  No repositories were imported in this run — nothing to rescan."
@@ -28,9 +37,7 @@ function Invoke-VBRRepositoryRescan {
         return
     }
 
-    $wanted  = [System.Collections.Generic.HashSet[string]]::new([string[]]$RepositoryNames, [System.StringComparer]::OrdinalIgnoreCase)
-    $toScan  = @($targetRepos | Where-Object { $_.name -and $wanted.Contains($_.name) })
-
+    $toScan = @(Select-VBRRepositoryByName -Repositories $targetRepos -Names $RepositoryNames)
     if ($toScan.Count -eq 0) {
         Write-Warning "  None of the imported repositories were found on the target — rescan skipped."
         return
@@ -61,4 +68,12 @@ function Invoke-VBRRepositoryRescan {
         Write-Warning "  Repository rescan failed: $($_.Exception.Message)"
         Write-Warning "  The configuration import is complete. Rescan the repositories from the console instead."
     }
+}
+
+function Select-VBRRepositoryByName {
+    param([object[]] $Repositories, [string[]] $Names)
+
+    if (-not $Names -or $Names.Count -eq 0) { return }
+    $wanted = [System.Collections.Generic.HashSet[string]]::new([string[]]$Names, [System.StringComparer]::OrdinalIgnoreCase)
+    @($Repositories) | Where-Object { $_.name -and $wanted.Contains($_.name) }
 }

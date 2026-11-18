@@ -88,6 +88,11 @@ Some objects are created through the regular endpoints instead:
 Encryption passwords are **not imported**; the import only reports how many
 need re-entering.
 
+An imported repository gets **a new ID on the target**. Automation job import
+resolves the repository by name, but agent jobs created through `POST /jobs`
+need the target ID, so the module maps each `backupRepositoryId` from source ID
+→ repository name → target ID.
+
 ---
 
 ## Agent Objects

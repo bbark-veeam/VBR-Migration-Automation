@@ -101,6 +101,18 @@ function Import-VBRSourceServerReference {
         }
     }
 
+    if ($missing.Count -gt 0) {
+        try {
+            $onTarget = @(Get-VBRPaginatedData -Connection $Connection -Endpoint '/backupInfrastructure/managedServers' |
+                          Where-Object { $_.name } | ForEach-Object { [string]$_.name })
+        } catch {
+            throw "Failed to query target managed servers: $($_.Exception.Message)"
+        }
+        $already = @($missing | Where-Object { $m = $_; $onTarget | Where-Object { $_ -ieq $m } })
+        foreach ($h in $already) { Write-Host "  Skipping '$h' — already a managed server on the target." }
+        $missing = @($missing | Where-Object { $already -notcontains $_ })
+    }
+
     if ($missing.Count -eq 0) {
         Write-Host "  No additional hosts to add — repository host references will be satisfied by remap or already exist."
         return
@@ -118,6 +130,7 @@ function Import-VBRSourceServerReference {
         throw "Failed to query target credentials: $($_.Exception.Message)"
     }
     $credList = @($targetCreds.data)
+    $targetIsVsa = (Get-VBRServerPlatform -Connection $Connection) -eq 'Linux'
 
     $payload = [ordered]@{
         windowsHosts       = @()
@@ -136,15 +149,20 @@ function Import-VBRSourceServerReference {
             $osType = Read-Host "    OS type (Windows / Linux)"
         }
 
-        Write-Host "    Imported credentials on target:"
-        for ($i = 0; $i -lt $credList.Count; $i++) {
-            Write-Host "      [$($i + 1)] $($credList[$i].username) — $($credList[$i].description)  ($($credList[$i].uniqueId))"
+        if ($targetIsVsa -and $osType -eq 'Windows') {
+            $cred = Select-VBRVsaCredential -Connection $Connection -HostName $hostName `
+                -Reason "Target is a VSA: Windows servers need an FQDN\user or UPN credential."
+        } else {
+            Write-Host "    Imported credentials on target:"
+            for ($i = 0; $i -lt $credList.Count; $i++) {
+                Write-Host "      [$($i + 1)] $($credList[$i].username) — $($credList[$i].description)  ($($credList[$i].uniqueId))"
+            }
+            $choice = $null
+            while (-not ($choice -as [int]) -or $choice -lt 1 -or $choice -gt $credList.Count) {
+                $choice = Read-Host "    Select credential by number"
+            }
+            $cred = $credList[[int]$choice - 1]
         }
-        $choice = $null
-        while (-not ($choice -as [int]) -or $choice -lt 1 -or $choice -gt $credList.Count) {
-            $choice = Read-Host "    Select credential by number"
-        }
-        $cred = $credList[[int]$choice - 1]
 
         $entry = [ordered]@{
             type        = if ($osType -eq 'Linux') { 'LinuxHost' } else { 'WindowsHost' }

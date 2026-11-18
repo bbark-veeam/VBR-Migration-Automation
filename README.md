@@ -28,11 +28,11 @@
 >
 > This tool is **pre-release and only partially validated**. It targets
 > **VBR 13.x** (REST API `1.3-rev2`) on both source and target; VBR 12.x is not
-> supported. One migration path has been run end to end with the current
-> module: **Windows VBR → Windows VBR on 13.1.2.57**. That run used one
-> source server and small object counts, importing into a target that already had
-> its own configuration. Every other path in
-> [Supported Migration Scenarios](#supported-migration-scenarios) is
+> supported. Two migration paths have been run end to end with the current
+> module on 13.1.2.57: **Windows VBR → Windows VBR** and **Windows VBR → VSA**.
+> Both used one source server and small object counts, importing into a target
+> that already had its own configuration. The VSA-source paths in
+> [Supported Migration Scenarios](#supported-migration-scenarios) are
 > **untested** on 13.x.
 >
 > Treat any other path as experimental. Run it in a lab first, and only
@@ -82,7 +82,7 @@ target.
 |----------|--------|--------|--------|-------|
 | Migration off VSA | Linux VSA VBR | Windows VBR | ❌ **No** | Objects that depend on the source VSA are left behind; see the VSA-source note below. |
 | Windows VBR refresh / consolidation | Windows VBR | Windows VBR | ✅ **Yes** — 13.1.2.57, single source, small object counts, into a target with existing configuration | Configuration Backup/Restore is the preferred method for a like-for-like refresh; see the note below. |
-| Modernization to VSA | Windows VBR | Linux VSA VBR | ❌ **No** | Cross-OS on the target side. For a Windows VBR → VSA move, Veeam's own supported migration procedure is the recommended path. |
+| Modernization to VSA / consolidation onto a VSA | Windows VBR | Linux VSA VBR | ✅ **Yes** — 13.1.2.57, single source, small object counts, into a VSA with existing configuration, including a hardened repository (Veeam Infrastructure Appliance) and Veeam Agent jobs | For a like-for-like move onto a **blank** VSA, Veeam's own supported Windows → VSA migration is the recommended path. This tool fits merging a Windows VBR into a VSA that is already in use. Needs: appliances paired with the VSA first, and FQDN\user or UPN credentials for Windows servers (both handled interactively). Imported backups mapped to their jobs continued as incrementals with CBT. |
 | VSA refresh | Linux VSA VBR | Linux VSA VBR | ❌ **No** | The VSA-source limitation below applies. |
 
 > **Note on Windows → Windows migrations:** Veeam's built-in **Configuration
@@ -141,9 +141,10 @@ repositories. Plan accordingly.
 | Credentials | ✅ | ✅ | Passwords are not stored in exports; you will be prompted for each on import |
 | Cloud credentials | ✅ | ✅ | Secret keys are not stored in exports; you will be prompted for each on import |
 | Managed servers | ✅ | ✅ | |
-| Repositories | ✅ | ✅ | Host references point to the Source Veeam Server — remap after import |
-| Proxies | ✅ | ✅ | |
-| Backup jobs | ✅ | ✅ | |
+| Repositories | ✅ | ✅ | Backups already in them are not imported; an optional rescan at the end of the import makes them available. Host references to the Source Veeam Server are remapped or added as managed servers |
+| Proxies | ✅ | ✅ | Proxies on hosts the target doesn't manage (e.g. the source's default proxies) are skipped |
+| VMware vSphere backup jobs | ✅ | ✅ | Created with a **new job ID**; existing backups are not linked to them (see [Known Limitations](#known-limitations)) |
+| Veeam Agent protection groups and jobs | ✅ | ✅ | The default *Manually Added* group is skipped |
 
 ---
 
@@ -469,11 +470,17 @@ Rescan imported repositories now? [y/N]
   repositories holding data that is due to be retired: rescan later from the
   console only if a restore is needed.
 
-Repositories that already existed on the target are never rescanned. Rescanned
-backups are not attached to the imported jobs: VBR offers no API for that, and
-an imported job gets a new ID. Where an imported job should continue an
-existing chain, map it to the backup from the console (Edit job > Storage >
-Map backup). Its next run then continues the chain as an incremental.
+Repositories from the export that were already on the target when the run
+started are not offered, so repeated imports don't ask about them again. They
+are listed instead (`Not offered for rescan (already on the target when this
+run started): ...`). These are usually the target's own (such as its *Default
+Backup Repository*) or ones created by an earlier import that was interrupted
+before reaching the rescan question. Rescan the latter from the console.
+
+Rescanned backups are not attached to the imported jobs: VBR offers no API
+for that, and an imported job gets a new ID. Where an imported job should
+continue an existing chain, map it to the backup from the console (Edit job >
+Storage > Map backup). Its next run then continues the chain as an incremental.
 
 ### Cleanup of Source-Referencing Objects
 
@@ -505,10 +512,97 @@ Target Veeam Server confirms the migration is complete.
 
 ---
 
-## Known Gaps
+## Known Limitations
+
+### Versions and testing
+
+- **VBR 13.x only.** Every request asks for REST API revision `1.3-rev2`. A
+  server that doesn't support that revision (12.x, and possibly early 13.0
+  builds) rejects it. `Connect-VBRApi -ApiVersion` can request another revision,
+  but only `1.3-rev2` has been tested.
+- **Only Windows VBR → Windows VBR and Windows VBR → VSA have been tested**
+  (13.1.2.57). The VSA-source scenarios in
+  [Supported Migration Scenarios](#supported-migration-scenarios) are untested.
+
+### Backups and jobs
+
+- **Imported jobs are not linked to existing backups.** The export carries no
+  job ID, so each job is created on the target with a new ID. VBR offers no
+  REST or PowerShell way to point a backup job at an existing backup chain.
+  After a rescan, the backups sit under **Disk (Imported)**. Map each job to its
+  backup in the console (Edit job > Storage > Map backup) if it should continue
+  the chain; its next run is then an incremental. This is a product limitation,
+  not a gap in this tool.
+- **Repository import does not import backups.** Answer `y` to the rescan
+  prompt at the end of the import, or rescan from the console later.
+- **Imported jobs keep the schedule from the export.** If the source VBR is still
+  running, both servers may back up the same workloads. Disable the jobs on one
+  side until the cut-over.
+- **Only VMware vSphere backup jobs and Veeam Agent jobs are migrated.**
+  Hyper-V, backup copy, replication, NAS, CDP, SureBackup and tape jobs must be
+  recreated by hand.
+
+### Merging into an existing target
+
+- **One source server per run.** You can run the tool again to import another
+  source into the same target.
+- **Existing objects are skipped, not merged or renamed.** Managed servers,
+  repositories and jobs are matched by name; credentials and cloud credentials
+  by ID. If the target already has a job called *Daily Backup*, the source's
+  *Daily Backup* is skipped, not imported under another name. Check for name
+  collisions before importing.
+- **On a large target, existing objects can be missed.** The existence checks for
+  credentials, cloud credentials, managed servers, proxies and repositories
+  read only the first page of results. On a target with more objects than one
+  page holds, an existing object can be missed and imported a second time.
+
+### Credentials and secrets
+
+- **The import is interactive.** It prompts for each credential and cloud
+  credential password, and for choices such as which credential to use for an
+  added host. It cannot run unattended.
+- **Encryption passwords are not imported.** Re-enter them on the target
+  (Configuration > Encryption Passwords).
+
+### Infrastructure
+
+- **The Source Veeam Server is added to the target as a managed server** when
+  repositories reference it. Remove it once the migration is validated (see
+  [Cleanup of Source-Referencing Objects](#cleanup-of-source-referencing-objects)).
+- **Infrastructure hosted on the Source Veeam Server is not carried over.** Its
+  default proxies are skipped. A repository with the same name as one on the
+  target (such as *Default Backup Repository*) is skipped.
+- **Certificate-paired appliances can't be imported.** A Veeam Infrastructure
+  Appliance (for example a hardened repository) added by pairing has no
+  credentials or SSH fingerprint in the export, and the import API rejects it.
+  Before changing anything, the import lists any that are missing on the
+  target and **waits**. Pair each appliance with the target from its Host
+  Management Console, **using the same name the source used**, then press
+  Enter: the import re-checks and continues once they're all there (or type
+  `Q` to abort). The host is then skipped as already present, its
+  repositories import, and jobs that target them are pointed at the imported
+  repositories. An appliance can be paired with only one VBR at a time, so pairing
+  it with the target removes it from the source.
+- **A VSA target needs FQDN\user or UPN credentials for Windows servers.** A
+  Veeam Software Appliance can't add a Windows server with a credential in
+  `NETBIOS\user`, `HOST\user` or bare-name form; VBR reports "Failed to discover
+  server packages". When the target is a VSA (detected from `/serverInfo`), the
+  import checks the Windows hosts first, before changing anything. If no
+  credential in `domain.fqdn\user` or `user@domain.fqdn` form exists in the
+  export or on the target, it offers to add one now (user name checked for
+  form, password hidden), to wait while you add it in the VSA console, or to
+  abort. When managed servers are imported, it asks you to choose a credential
+  for each affected host. You can pick an existing accepted credential, add a new
+  one there and then (for example, a service account for the environment being
+  imported), add one in the VSA console and refresh the list, or abort. The same
+  choice is offered when the Source Veeam Server is added to a VSA.
+- **VSA sources** have further limits; see
+  [Note on VSA-as-source migrations](#note-on-vsa-as-source-migrations-applies-to-both-vsa--vsa-and-vsa--windows-vbr).
+
+### Not covered by the Automation API
 
 - **Scale-out repositories** — may require manual reconfiguration if extent
   paths differ between source and target.
-- **Tape infrastructure** — not covered by the Automation API.
+- **Tape infrastructure.**
 - **Global settings** — notification settings, global exclusions, and
-  server-level configuration are not exposed via the Automation endpoints.
+  server-level configuration.

@@ -57,6 +57,18 @@ will mark the first version considered stable / ready to be public-facing.
   import with an error. The wrapper asks once and passes the choice to both
   phases. A legacy flat `output\` export is still picked up.
 ### Fixed
+- The Source Veeam Server is added to the target as a managed server only when
+  a repository that is actually being imported is hosted on it. Repositories
+  skipped by name, and mount servers on the source (moved to the target), no
+  longer cause it. Being managed by another VBR stops the source's local console
+  from connecting to it (web and remote consoles still work); the import now
+  warns when it adds the source.
+- Every list lookup on the target now reads all pages, not just the first: the
+  skip-if-exists checks (credentials, cloud credentials, managed servers,
+  proxies, repositories), credential pickers, agent-job computer resolution and
+  the vSphere inventory read. On a large target an existing object could
+  previously be missed and imported twice. The paging helper also stops on an
+  empty page.
 - Agent jobs that target an imported repository failed with "Backup repository
   with id '…' was not found": an imported repository gets a new ID on the target,
   and agent jobs are created through `/jobs` with the source ID. Each

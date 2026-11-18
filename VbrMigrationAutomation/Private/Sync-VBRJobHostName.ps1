@@ -12,8 +12,7 @@ function Sync-VBRJobHostName {
     )
 
     try {
-        $response = Invoke-RestMethod -Uri "$($Connection.BaseUri)/inventory/vmware/hosts" `
-            -Method Get -Headers $Connection.Headers -SkipCertificateCheck
+        $response = [pscustomobject]@{ data = @(Get-VBRPaginatedData -Connection $Connection -Endpoint '/inventory/vmware/hosts') }
     } catch {
         Write-Warning "  Could not read the target's vSphere inventory — host names not checked: $($_.Exception.Message)"
         return

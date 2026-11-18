@@ -24,10 +24,11 @@ function Get-VBRPaginatedData {
             throw "GET failed (HTTP $statusCode).`n  URL: $uri`n  Error: $($_.Exception.Message)"
         }
 
-        foreach ($item in $response.data) { $all.Add($item) }
+        $page = @($response.data)
+        foreach ($item in $page) { $all.Add($item) }
 
         $skip += $PageSize
-    } while ($all.Count -lt $response.pagination.total)
+    } while ($page.Count -gt 0 -and $all.Count -lt $response.pagination.total)
 
     return $all.ToArray()
 }

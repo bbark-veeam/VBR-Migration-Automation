@@ -64,9 +64,7 @@ function Import-VBRRepository {
     $targetId   = $null
     $targetSelf = $null
     try {
-        $targetServers = Invoke-RestMethod `
-            -Uri "$($Connection.BaseUri)/backupInfrastructure/managedServers" `
-            -Method Get -Headers $Connection.Headers -SkipCertificateCheck
+        $targetServers = [pscustomobject]@{ data = @(Get-VBRPaginatedData -Connection $Connection -Endpoint '/backupInfrastructure/managedServers') }
     } catch {
         Write-Warning "  Could not query target managed servers: $($_.Exception.Message)"
         $targetServers = $null
@@ -174,9 +172,7 @@ function Import-VBRRepository {
     $cloudCredsById = @{}
     if ($cloudRepos.Count -gt 0) {
         try {
-            $targetCloudCreds = Invoke-RestMethod `
-                -Uri "$($Connection.BaseUri)/cloudCredentials" `
-                -Method Get -Headers $Connection.Headers -SkipCertificateCheck
+            $targetCloudCreds = [pscustomobject]@{ data = @(Get-VBRPaginatedData -Connection $Connection -Endpoint '/cloudCredentials') }
             foreach ($cc in @($targetCloudCreds.data)) {
                 if ($cc.uniqueId) { $cloudCredsById[$cc.uniqueId] = $cc }
             }
@@ -196,9 +192,7 @@ function Import-VBRRepository {
 
     if ($nonCloudCount -gt 0 -or $cloudRepos.Count -gt 0) {
         try {
-            $targetRepos = Invoke-RestMethod `
-                -Uri "$($Connection.BaseUri)/backupInfrastructure/repositories" `
-                -Method Get -Headers $Connection.Headers -SkipCertificateCheck
+            $targetRepos = [pscustomobject]@{ data = @(Get-VBRPaginatedData -Connection $Connection -Endpoint '/backupInfrastructure/repositories') }
             foreach ($r in @($targetRepos.data)) {
                 if ($r.name) { $existingRepoNames.Add($r.name) | Out-Null }
             }

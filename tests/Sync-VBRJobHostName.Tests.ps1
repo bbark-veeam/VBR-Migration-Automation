@@ -3,6 +3,7 @@
 
 BeforeAll {
     . (Join-Path $PSScriptRoot '..' 'VbrMigrationAutomation' 'Private' 'Sync-VBRJobHostName.ps1')
+    . (Join-Path $PSScriptRoot '..' 'VbrMigrationAutomation' 'Private' 'Get-VBRPaginatedData.ps1')
 
     function New-JobPayload {
         @'
@@ -77,7 +78,7 @@ Describe 'Sync-VBRJobHostName' {
         $p = New-JobPayload
         Sync-VBRJobHostName -Connection ([pscustomobject]@{ BaseUri = 'https://t/api/v1'; Headers = @{} }) -Payload $p
         $p.jobs[0].virtualMachines.includes[0].urn | Should -BeExactly 'esx:ESXi-01.HackShack.local;vm:11'
-        Should -Invoke Invoke-RestMethod -Times 1 -ParameterFilter { $Uri -eq 'https://t/api/v1/inventory/vmware/hosts' }
+        Should -Invoke Invoke-RestMethod -Times 1 -ParameterFilter { $Uri -like 'https://t/api/v1/inventory/vmware/hosts?skip=0*' }
     }
 
     It 'warns and leaves the payload unchanged when the inventory call fails' {

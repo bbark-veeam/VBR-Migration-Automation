@@ -100,9 +100,7 @@ function Import-VBRAgentJob {
         }
 
         try {
-            $entitiesResp = Invoke-RestMethod `
-                -Uri "$($Connection.BaseUri)/agents/protectionGroups/$targetPgId/discoveredEntities" `
-                -Method Get -Headers $Connection.Headers -SkipCertificateCheck
+            $entitiesResp = [pscustomobject]@{ data = @(Get-VBRPaginatedData -Connection $Connection -Endpoint "/agents/protectionGroups/$targetPgId/discoveredEntities") }
         } catch {
             Write-Warning "    Could not query discovered entities for protection group $targetPgId : $($_.Exception.Message)"
             $entitiesByPg[$targetPgId] = @{}

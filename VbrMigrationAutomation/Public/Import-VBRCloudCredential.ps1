@@ -51,8 +51,7 @@ function Import-VBRCloudCredential {
 
     # Build a set of existing cloud credential uniqueIds so duplicates are skipped.
     try {
-        $existing    = Invoke-RestMethod -Uri "$($Connection.BaseUri)/cloudCredentials" `
-            -Method Get -Headers $Connection.Headers -SkipCertificateCheck
+        $existing    = [pscustomobject]@{ data = @(Get-VBRPaginatedData -Connection $Connection -Endpoint '/cloudCredentials') }
         $existingIds = @($existing.data | ForEach-Object { $_.uniqueId })
     } catch {
         $existingIds = @()

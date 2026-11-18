@@ -36,9 +36,7 @@ function Import-VBRProxy {
     $knownHosts = [System.Collections.Generic.HashSet[string]]::new(
         [System.StringComparer]::OrdinalIgnoreCase)
     try {
-        $targetServers = Invoke-RestMethod `
-            -Uri "$($Connection.BaseUri)/backupInfrastructure/managedServers" `
-            -Method Get -Headers $Connection.Headers -SkipCertificateCheck
+        $targetServers = [pscustomobject]@{ data = @(Get-VBRPaginatedData -Connection $Connection -Endpoint '/backupInfrastructure/managedServers') }
         foreach ($s in @($targetServers.data)) {
             if ($s.name) { $knownHosts.Add($s.name) | Out-Null }
         }
@@ -50,9 +48,7 @@ function Import-VBRProxy {
     $existingProxyHosts = [System.Collections.Generic.HashSet[string]]::new(
         [System.StringComparer]::OrdinalIgnoreCase)
     try {
-        $targetProxies = Invoke-RestMethod `
-            -Uri "$($Connection.BaseUri)/backupInfrastructure/proxies" `
-            -Method Get -Headers $Connection.Headers -SkipCertificateCheck
+        $targetProxies = [pscustomobject]@{ data = @(Get-VBRPaginatedData -Connection $Connection -Endpoint '/backupInfrastructure/proxies') }
         foreach ($p in @($targetProxies.data)) {
             if ($p.server.hostName) { $existingProxyHosts.Add($p.server.hostName) | Out-Null }
         }

@@ -450,9 +450,11 @@ Some components require follow-up steps on the Target Veeam Server:
    skipped, update them in the Veeam console.
 3. **Cloud credential secret keys** — entered interactively during import. If
    any were skipped (e.g. AzureCompute, GoogleService), recreate them manually.
-4. **Repository host references** — repositories that reference the Source
-   Veeam Server by hostname (e.g. mount server, gateway server) need to be
-   remapped to equivalent infrastructure on the Target Veeam Server.
+4. **Repository host references** — a mount or gateway server on the Source
+   Veeam Server is moved to the Target Veeam Server automatically. A repository
+   hosted **on** the Source Veeam Server makes the import add the source as a
+   managed server of the target (see the Known Limitations note on its local
+   console).
 
 ### Backups in Imported Repositories
 
@@ -484,11 +486,11 @@ Storage > Map backup). Its next run then continues the chain as an incremental.
 
 ### Cleanup of Source-Referencing Objects
 
-The migration imports the Source Veeam Server's full configuration. As a
-result, after import the **Target Veeam Server will contain references to the
-Source Veeam Server itself** as a managed server, along with any repositories,
-proxies, mount servers, gateway servers, or other infrastructure components
-that were hosted on or pointed to the Source Veeam Server.
+The migration imports the Source Veeam Server's full configuration. If any
+imported repository is hosted on the Source Veeam Server, the **Target Veeam
+Server will also manage the Source Veeam Server itself**, along with the
+repositories, proxies or other components hosted on it. Mount and gateway
+servers on the source are moved to the target and don't cause this.
 
 Once the migration has been validated and you are confident the Target Veeam
 Server is the authoritative production server, **it is recommended to remove
@@ -551,10 +553,6 @@ Target Veeam Server confirms the migration is complete.
   by ID. If the target already has a job called *Daily Backup*, the source's
   *Daily Backup* is skipped, not imported under another name. Check for name
   collisions before importing.
-- **On a large target, existing objects can be missed.** The existence checks for
-  credentials, cloud credentials, managed servers, proxies and repositories
-  read only the first page of results. On a target with more objects than one
-  page holds, an existing object can be missed and imported a second time.
 
 ### Credentials and secrets
 
@@ -566,8 +564,14 @@ Target Veeam Server confirms the migration is complete.
 
 ### Infrastructure
 
-- **The Source Veeam Server is added to the target as a managed server** when
-  repositories reference it. Remove it once the migration is validated (see
+- **The Source Veeam Server is added to the target as a managed server** only
+  when a repository being imported is hosted on it, for example a local disk
+  repository on the source that the target doesn't already have. Mount and
+  gateway servers on the source are moved to the target instead.
+- **Once the Source Veeam Server is a managed server of another VBR, its local
+  console can no longer connect to it.** The web console and remote consoles
+  still work. The import warns before adding it. Remove it from the target's
+  managed servers once the migration is validated (see
   [Cleanup of Source-Referencing Objects](#cleanup-of-source-referencing-objects)).
 - **Infrastructure hosted on the Source Veeam Server is not carried over.** Its
   default proxies are skipped. A repository with the same name as one on the

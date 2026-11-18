@@ -37,8 +37,7 @@ function Import-VBRCredential {
     # Build a set of existing credential uniqueIds on the target so credentials
     # that already exist can be skipped.
     try {
-        $existing    = Invoke-RestMethod -Uri "$($Connection.BaseUri)/credentials" `
-            -Method Get -Headers $Connection.Headers -SkipCertificateCheck
+        $existing    = [pscustomobject]@{ data = @(Get-VBRPaginatedData -Connection $Connection -Endpoint '/credentials') }
         $existingIds = @($existing.data | ForEach-Object { $_.uniqueId })
     } catch {
         $existingIds = @()

@@ -52,8 +52,7 @@ function Import-VBRAgentMigration {
     # migration was probably not run first.
     Write-Host "`nChecking target credentials..."
     try {
-        $credResponse = Invoke-RestMethod -Uri "$($conn.BaseUri)/credentials" `
-            -Method Get -Headers $conn.Headers -SkipCertificateCheck
+        $credResponse = [pscustomobject]@{ data = @(Get-VBRPaginatedData -Connection $conn -Endpoint '/credentials') }
     } catch {
         throw "Failed to query target credentials: $($_.Exception.Message)"
     }

@@ -11,10 +11,14 @@
 #   4. POSTs a single-entry ManagedServers payload via the Automation API,
 #      preserving the source's UUID so repository cross-references resolve
 #
+# Only repositories that will actually be imported count: ones whose name is
+# already on the target are skipped by Import-VBRRepository, and mount servers
+# on the Source Veeam Server are remapped to the target VBR there.
+#
 # When -IsVSA is set, the source VBR itself is excluded from the auto-add
 # list — VSAs cannot be added as managed servers in another Veeam install.
-# Auto-added entries are documented in the README as objects to remove after
-# the migration has been validated.
+# Adding a Windows source VBR warns that its local console will no longer
+# connect to it (the web console and remote consoles still do).
 
 function Import-VBRSourceServerReference {
     param(
@@ -71,19 +75,37 @@ function Import-VBRSourceServerReference {
         }
     }
 
+    # Repositories whose name is already on the target are skipped by
+    # Import-VBRRepository, so their hosts are not needed.
+    $targetRepoNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    try {
+        foreach ($r in (Get-VBRPaginatedData -Connection $Connection -Endpoint '/backupInfrastructure/repositories')) {
+            if ($r.name) { $targetRepoNames.Add([string]$r.name) | Out-Null }
+        }
+    } catch {
+        Write-Warning "  Could not list target repositories — every exported repository is treated as to be imported: $($_.Exception.Message)"
+    }
+
     foreach ($category in $repos.PSObject.Properties) {
         foreach ($repo in @($category.Value)) {
+            if (-not $repo) { continue }
+            if ($repo.name -and $targetRepoNames.Contains([string]$repo.name)) { continue }
+
             if ($repo.hostName) {
                 $osHint = if ($category.Name -match 'Linux') { 'Linux' }
                           elseif ($category.Name -match 'Windows') { 'Windows' }
                           else { '' }
                 Add-HostRef -HostName $repo.hostName -OsHint $osHint
             }
-            if ($repo.mountServer.linux.mountServerName) {
-                Add-HostRef -HostName $repo.mountServer.linux.mountServerName -OsHint 'Linux'
+            # A mount server on the Source Veeam Server is remapped to the
+            # target VBR by Import-VBRRepository, so it doesn't need the source.
+            $linuxMount   = [string]$repo.mountServer.linux.mountServerName
+            $windowsMount = [string]$repo.mountServer.windows.mountServerName
+            if ($linuxMount -and $linuxMount -ine $SourceVBR) {
+                Add-HostRef -HostName $linuxMount -OsHint 'Linux'
             }
-            if ($repo.mountServer.windows.mountServerName) {
-                Add-HostRef -HostName $repo.mountServer.windows.mountServerName -OsHint 'Windows'
+            if ($windowsMount -and $windowsMount -ine $SourceVBR) {
+                Add-HostRef -HostName $windowsMount -OsHint 'Windows'
             }
             if ($repo.proxyAppliance.managedServerId -and $repo.hostName) {
                 Add-HostRef -HostName $repo.hostName -ManagedServerId $repo.proxyAppliance.managedServerId
@@ -121,11 +143,18 @@ function Import-VBRSourceServerReference {
     Write-Host "  Found $($missing.Count) host(s) referenced by repositories but not in ManagedServers.json:"
     foreach ($h in $missing) { Write-Host "    - $h" }
     Write-Host "  These will be added as managed servers on the target so repository imports validate."
-    Write-Host "  Per the README, remove them after migration validation completes."
+
+    if ($SourceVBR -and ($missing | Where-Object { $_ -ieq $SourceVBR })) {
+        $hosted = @($repos.PSObject.Properties | ForEach-Object { @($_.Value) } |
+                    Where-Object { $_ -and $_.hostName -ieq $SourceVBR -and -not $targetRepoNames.Contains([string]$_.name) } |
+                    ForEach-Object { $_.name })
+        Write-Warning "  '$SourceVBR' (the Source Veeam Server) hosts repositories being imported: $($hosted -join ', ')."
+        Write-Warning "  Once it is a managed server of the target, its local console can no longer connect to it."
+        Write-Warning "  The web console and remote consoles still work."
+    }
 
     try {
-        $targetCreds = Invoke-RestMethod -Uri "$($Connection.BaseUri)/credentials" `
-            -Method Get -Headers $Connection.Headers -SkipCertificateCheck
+        $targetCreds = [pscustomobject]@{ data = @(Get-VBRPaginatedData -Connection $Connection -Endpoint '/credentials') }
     } catch {
         throw "Failed to query target credentials: $($_.Exception.Message)"
     }

@@ -57,8 +57,7 @@ function Import-VBRAgentProtectionGroup {
     # from the source export is in uniqueId form and must be translated.
     $credUniqueIdToId = @{}
     try {
-        $targetCreds = Invoke-RestMethod -Uri "$($Connection.BaseUri)/credentials" `
-            -Method Get -Headers $Connection.Headers -SkipCertificateCheck
+        $targetCreds = [pscustomobject]@{ data = @(Get-VBRPaginatedData -Connection $Connection -Endpoint '/credentials') }
         foreach ($c in @($targetCreds.data)) {
             if ($c.uniqueId -and $c.id) { $credUniqueIdToId[$c.uniqueId] = $c.id }
         }

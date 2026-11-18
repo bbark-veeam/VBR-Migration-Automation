@@ -30,8 +30,7 @@ function Import-VBRManagedServer {
     }
 
     try {
-        $existing      = Invoke-RestMethod -Uri "$($Connection.BaseUri)/backupInfrastructure/managedServers" `
-            -Method Get -Headers $Connection.Headers -SkipCertificateCheck
+        $existing      = [pscustomobject]@{ data = @(Get-VBRPaginatedData -Connection $Connection -Endpoint '/backupInfrastructure/managedServers') }
         $existingNames = @($existing.data | ForEach-Object { $_.name })
     } catch {
         Write-Warning "  Could not query existing managed servers — skip-if-exists check disabled: $($_.Exception.Message)"

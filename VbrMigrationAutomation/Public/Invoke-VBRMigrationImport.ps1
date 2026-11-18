@@ -13,12 +13,14 @@ function Invoke-VBRMigrationImport {
     param(
         [Parameter(Mandatory)] [string] $Server,
         [int]                           $Port           = 9419,
-        [string]                        $InputPath      = (Join-Path (Get-Location).Path 'output'),
+        [string]                        $InputPath,
         [string]                        $SourceVBR,
         [switch]                        $IsVSA,
         [switch]                        $SkipCloudRepos,
         [switch]                        $Quiet
     )
+
+    $InputPath = Resolve-VBRImportPath -InputPath $InputPath
 
     $cred = Get-Credential -Message "Enter credentials for $Server"
     $conn = Connect-VBRApi -Server $Server -Port $Port -Credential $cred

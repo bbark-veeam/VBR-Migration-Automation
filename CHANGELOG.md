@@ -15,7 +15,27 @@ will mark the first version considered stable / ready to be public-facing.
 
 ## [Unreleased]
 ### Added
+- After the main import, an optional rescan of the repositories created in
+  that run (`Rescan imported repositories now? [y/N]`, default No), so their
+  existing backups appear under Disk (Imported). The Automation repository
+  import doesn't import backups on its own. A failed rescan only warns.
+- Job import aligns vSphere host names and URNs with the target's inventory
+  before submitting. Job validation is case-sensitive, and a target that has
+  registered a host before keeps its own casing (e.g. `esxi-01` on the source
+  vs `ESXi-01` on the target), which failed the import.
 ### Changed
+- **Breaking:** every request now sends `x-api-version: 1.3-rev2` (REST API
+  for VBR 13.x), as the API requires. VBR 12.x is no longer supported (end of
+  life February 2027). `Connect-VBRApi -ApiVersion` overrides the value.
+- Exports now write to a new folder per run by default:
+  `output\<source-server>_<yyyy-MM-dd_HHmmss>` (was a shared `output\` folder
+  that each run overwrote).
+- Imports without `-InputPath` (`Invoke-VBRMigrationImport`,
+  `Import-VBRMigration`, `Import-VBRAgentMigration`) now find the export folders
+  under `output\`: one is used directly, several are listed newest first
+  (source server + export time) and you pick one by number, and none stops the
+  import with an error. The wrapper asks once and passes the choice to both
+  phases. A legacy flat `output\` export is still picked up.
 ### Fixed
 ### Security
 

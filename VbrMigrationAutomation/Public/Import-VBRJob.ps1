@@ -58,6 +58,7 @@ function Import-VBRJob {
     }
 
     Write-Host "Importing $(@($payload.jobs).Count) job(s) from $inFile..."
+    Sync-VBRJobHostName -Connection $Connection -Payload $payload
 
     $rawJson = $payload | ConvertTo-Json -Depth 20
     Invoke-AutomationSession `

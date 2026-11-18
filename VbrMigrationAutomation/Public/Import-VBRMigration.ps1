@@ -24,7 +24,7 @@ function Import-VBRMigration {
     param(
         [Parameter(Mandatory)] [string] $Server,
         [int]                           $Port             = 9419,
-        [string]                        $InputPath        = (Join-Path (Get-Location).Path 'output'),
+        [string]                        $InputPath,
         [string]                        $SourceVBR,
         [switch]                        $IsVSA,
         [switch]                        $SkipCloudRepos,
@@ -32,6 +32,8 @@ function Import-VBRMigration {
         [switch]                        $SkipBackupPrompt,
         [switch]                        $Quiet
     )
+
+    $InputPath = Resolve-VBRImportPath -InputPath $InputPath
 
     # Auto-populate -SourceVBR and -IsVSA from the export's _metadata.json if
     # the caller didn't pass them explicitly. CLI args take precedence.
@@ -93,6 +95,17 @@ function Import-VBRMigration {
         throw "Automation endpoint check failed (HTTP $statusCode): $($_.Exception.Message)"
     }
 
+    $reposBefore = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $repoSnapshotOk = $true
+    try {
+        foreach ($r in (Get-VBRPaginatedData -Connection $conn -Endpoint '/backupInfrastructure/repositories')) {
+            if ($r.name) { $reposBefore.Add($r.name) | Out-Null }
+        }
+    } catch {
+        $repoSnapshotOk = $false
+        Write-Warning "  Could not list target repositories before import — the rescan offer will be skipped: $($_.Exception.Message)"
+    }
+
     $steps = @(
         'Import-VBREncryptionPassword'
         'Import-VBRCredential'
@@ -114,6 +127,19 @@ function Import-VBRMigration {
             Write-Error "  $func FAILED: $_"
             throw "Import halted. Remaining steps were not run due to dependency-order requirements."
         }
+    }
+
+    if ($repoSnapshotOk) {
+        Write-Host "`n--- Repository rescan ---"
+        $exportedRepoNames = @()
+        $repoFile = Join-Path $InputPath 'Repositories.json'
+        if (Test-Path $repoFile) {
+            $exported = Get-Content $repoFile -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 20
+            $exportedRepoNames = @($exported.PSObject.Properties | ForEach-Object { @($_.Value) } |
+                                   Where-Object { $_.name } | ForEach-Object { $_.name })
+        }
+        $importedRepoNames = @($exportedRepoNames | Where-Object { -not $reposBefore.Contains($_) } | Sort-Object -Unique)
+        Invoke-VBRRepositoryRescan -Connection $conn -RepositoryNames $importedRepoNames -Quiet:$Quiet
     }
 
     Write-Host "`nImport complete."

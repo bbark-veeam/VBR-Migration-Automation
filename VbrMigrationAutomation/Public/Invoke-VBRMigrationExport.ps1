@@ -10,7 +10,7 @@ function Invoke-VBRMigrationExport {
     param(
         [Parameter(Mandatory)] [string] $Server,
         [int]                           $Port       = 9419,
-        [string]                        $OutputPath = (Join-Path (Get-Location).Path 'output')
+        [string]                        $OutputPath = (Get-VBRDefaultExportPath -Server $Server)
     )
 
     $cred = Get-Credential -Message "Enter credentials for $Server"

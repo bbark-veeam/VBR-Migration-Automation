@@ -20,11 +20,13 @@ function Import-VBRAgentMigration {
     param(
         [Parameter(Mandatory)] [string] $Server,
         [int]                           $Port             = 9419,
-        [string]                        $InputPath        = (Join-Path (Get-Location).Path 'output'),
+        [string]                        $InputPath,
         [PSCustomObject]                $Connection,
         [switch]                        $SkipBackupPrompt,
         [switch]                        $Quiet
     )
+
+    $InputPath = Resolve-VBRImportPath -InputPath $InputPath
 
     if ($Connection) {
         $conn = $Connection

@@ -11,9 +11,8 @@
 > official Veeam product**, is not part of any Veeam product roadmap, and is
 > **not supported, endorsed, or maintained by Veeam Software**.
 >
-> Although the author is a Veeam employee, this work was developed independently
-> on personal time and represents the author's views only — not the position,
-> strategy, or commitment of Veeam Software.
+> Although the author is a Veeam employee, this tool represents the author's
+> views only — not the position, strategy, or commitment of Veeam Software.
 >
 > - **Veeam Support cannot assist** with issues encountered while using this
 >   tool. Do not open Veeam Support tickets for problems with these scripts.
@@ -22,6 +21,22 @@
 > - **Use at your own risk.** Always test in a non-production environment
 >   first, and always have a verified Veeam configuration backup (or VM
 >   snapshot) of the target server before running any import.
+
+---
+
+> ## 🧪 Project Status — Pre-release (v0.x)
+>
+> This tool is **pre-release and only partially validated**. It targets
+> **VBR 13.x** (REST API `1.3-rev2`) on both source and target; VBR 12.x is not
+> supported. One migration path has been run end to end with the current
+> module: **Windows VBR → Windows VBR on 13.1.2.57**. That run used one
+> source server and small object counts, importing into a target that already had
+> its own configuration. Every other path in
+> [Supported Migration Scenarios](#supported-migration-scenarios) is
+> **untested** on 13.x.
+>
+> Treat any other path as experimental. Run it in a lab first, and only
+> after taking a configuration backup or snapshot of the target.
 
 ---
 
@@ -36,7 +51,10 @@ case, called via `Invoke-RestMethod` in PowerShell 7.
 Scripts run from any machine with network access to the VBR server — they do
 not need to be executed on the VBR host itself.
 
-**Reference:** [Veeam VBR REST API — Automation](https://helpcenter.veeam.com/references/vbr/13/rest/1.3-rev1/tag/Automation)
+Every request sends `x-api-version: 1.3-rev2`. Both servers must run a VBR 13
+build that supports that API revision (tested on 13.1.2.57).
+
+**Reference:** [Veeam VBR REST API — Automation](https://helpcenter.veeam.com/references/vbr/13/rest/1.3-rev2/tag/Automation)
 
 ---
 
@@ -53,14 +71,19 @@ Throughout this documentation:
 
 ## Supported Migration Scenarios
 
-This tool supports the following customer migration patterns:
+The tool is designed for the migration patterns below. The **Tested** column
+shows what has actually been run end to end. The tool migrates
+**one source server per run**. The target may already have its own
+configuration, but any object whose name already exists there is **skipped, not
+merged**. Check for name collisions before importing several sources into one
+target.
 
-| Scenario | Source | Target | Status |
-|----------|--------|--------|--------|
-| Windows VBR refresh | Windows VBR | Windows VBR | Supported, but see note below — Configuration Backup/Restore is the preferred method for this scenario. |
-| Modernization to VSA | Windows VBR | Linux VSA VBR | Supported. Cross-OS on the target side; some manual post-import remediation may apply. |
-| VSA refresh | Linux VSA VBR | Linux VSA VBR | **Needs validation.** Theoretically viable but untested. Same VSA-source limitation as below applies — see VSA-source note. |
-| Migration off VSA | Linux VSA VBR | Windows VBR | Partial. Credentials, cloud credentials, encryption passwords, and cloud repositories migrate fine. Same VSA-source limitation as below applies — see VSA-source note. |
+| Scenario | Source | Target | Tested | Notes |
+|----------|--------|--------|--------|-------|
+| Migration off VSA | Linux VSA VBR | Windows VBR | ❌ **No** | Objects that depend on the source VSA are left behind; see the VSA-source note below. |
+| Windows VBR refresh / consolidation | Windows VBR | Windows VBR | ✅ **Yes** — 13.1.2.57, single source, small object counts, into a target with existing configuration | Configuration Backup/Restore is the preferred method for a like-for-like refresh; see the note below. |
+| Modernization to VSA | Windows VBR | Linux VSA VBR | ❌ **No** | Cross-OS on the target side. For a Windows VBR → VSA move, Veeam's own supported migration procedure is the recommended path. |
+| VSA refresh | Linux VSA VBR | Linux VSA VBR | ❌ **No** | The VSA-source limitation below applies. |
 
 > **Note on Windows → Windows migrations:** Veeam's built-in **Configuration
 > Backup and Restore** feature is the **preferred and officially supported**
@@ -127,12 +150,13 @@ repositories. Plan accordingly.
 ## How It Works
 
 **Export** — each export endpoint returns data synchronously in the POST
-response body. Scripts write each component to a JSON file in the `output\`
-directory.
+response body. Scripts write each component to a JSON file in the export folder
+(`output\<source-server>_<timestamp>\` by default).
 
 **Import** — each import endpoint accepts the exported JSON and processes it
 asynchronously, returning a session object. Scripts poll the session until it
-reaches a terminal state (`Succeeded` or `Failed`) before proceeding to the
+reaches the terminal state `Stopped`, then read the outcome from
+`result.result` (`Success`, `Warning`, or `Failed`) before proceeding to the
 next component.
 
 **Empty collections** — if a component has no records (e.g. no backup jobs
@@ -183,11 +207,15 @@ ones by ID:
 │   └── Private/                                   ← Internal helpers (not exported)
 │       ├── Connect-VBRApi.ps1 dependencies
 │       ├── Format-RedactedJson.ps1
+│       ├── Get-VBRDefaultExportPath.ps1
 │       ├── Get-VBRPaginatedData.ps1
 │       ├── Invoke-AutomationSession.ps1
-│       └── Invoke-VBRConfigBackup.ps1
+│       ├── Invoke-VBRConfigBackup.ps1
+│       ├── Invoke-VBRRepositoryRescan.ps1
+│       ├── Resolve-VBRImportPath.ps1
+│       └── Sync-VBRJobHostName.ps1
 │
-├── output/                                        ← Export artefacts (git-ignored)
+├── output/                                        ← Export artefacts, one folder per export (git-ignored)
 │
 ├── tests/                                         ← Pester tests (see tests/README.md)
 │   ├── Module.Tests.ps1                            ← Load + export-surface smoke tests
@@ -255,14 +283,31 @@ Export-VBRRepository -Connection $conn -OutputPath .\output
 
 ### Optional path arguments
 
-By default, exports write to `(Join-Path (Get-Location) 'output')` and imports
-read from the same. Override with `-OutputPath` / `-InputPath` if your
-artefacts live elsewhere:
+By default, each export writes to a new folder named after the source server
+and the export time, `output\<source-server>_<yyyy-MM-dd_HHmmss>` under the
+current directory. Every run therefore keeps its own artefacts, and exports from
+several source servers stay apart. The export prints the folder path when it
+finishes. Override it with `-OutputPath`.
+
+Without `-InputPath`, an import looks for export folders (folders holding a
+`_metadata.json`) under `output\`:
+
+- **One export:** it is used, and its path is printed.
+- **Several exports:** they are listed newest first, with source server and
+  export time, and you pick one by number (`1`-`N`).
+- **None:** the import stops and asks for `-InputPath`.
 
 ```powershell
-Invoke-VBRMigrationExport -Server "<source>" -OutputPath "C:\migration\output"
-Invoke-VBRMigrationImport -Server "<target>" -InputPath  "C:\migration\output"
+Invoke-VBRMigrationExport -Server "<source>"    # -> output\<source>_2026-11-18_080235
+Invoke-VBRMigrationImport -Server "<target>"    # picks the export (prompts if several)
+Invoke-VBRMigrationImport -Server "<target>" -InputPath ".\output\<source>_2026-11-18_080235"
+
+Invoke-VBRMigrationExport -Server "<source>" -OutputPath "C:\migration\acme"
 ```
+
+Run `Invoke-VBRMigrationExport` rather than `Export-VBRMigration` followed by
+`Export-VBRAgentMigration` when you want both phases in one folder. Run on their
+own, each one creates its own timestamped folder.
 
 Port defaults to `9419` and can be overridden with `-Port`.
 
@@ -407,6 +452,28 @@ Some components require follow-up steps on the Target Veeam Server:
 4. **Repository host references** — repositories that reference the Source
    Veeam Server by hostname (e.g. mount server, gateway server) need to be
    remapped to equivalent infrastructure on the Target Veeam Server.
+
+### Backups in Imported Repositories
+
+Importing a repository creates it on the target but does **not** import the
+backups already stored in it. At the end of the main import, the tool lists the
+repositories created in that run and asks:
+
+```
+Rescan imported repositories now? [y/N]
+```
+
+- **y:** the repositories are rescanned and their backups appear under
+  **Backups > Disk (Imported)**, ready for restore.
+- **N (default):** the repositories are left as they are. This suits large
+  repositories holding data that is due to be retired: rescan later from the
+  console only if a restore is needed.
+
+Repositories that already existed on the target are never rescanned. Rescanned
+backups are not attached to the imported jobs: VBR offers no API for that, and
+an imported job gets a new ID. Where an imported job should continue an
+existing chain, map it to the backup from the console (Edit job > Storage >
+Map backup). Its next run then continues the chain as an incremental.
 
 ### Cleanup of Source-Referencing Objects
 

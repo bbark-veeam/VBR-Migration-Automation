@@ -570,9 +570,11 @@ Target Veeam Server confirms the migration is complete.
   gateway servers on the source are moved to the target instead.
 - **Once the Source Veeam Server is a managed server of another VBR, its local
   console can no longer connect to it.** The web console and remote consoles
-  still work. The import warns before adding it. Remove it from the target's
-  managed servers once the migration is validated (see
-  [Cleanup of Source-Referencing Objects](#cleanup-of-source-referencing-objects)).
+  still work, so the source stays fully manageable from them. Reinstalling only
+  the console component on the source is expected to restore the local
+  console. The import warns before adding it.
+  Remove it from the target's managed servers once the migration is validated
+  (see [Cleanup of Source-Referencing Objects](#cleanup-of-source-referencing-objects)).
 - **Infrastructure hosted on the Source Veeam Server is not carried over.** Its
   default proxies are skipped. A repository with the same name as one on the
   target (such as *Default Backup Repository*) is skipped.

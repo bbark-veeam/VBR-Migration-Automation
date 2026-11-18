@@ -150,7 +150,7 @@ function Import-VBRSourceServerReference {
                     ForEach-Object { $_.name })
         Write-Warning "  '$SourceVBR' (the Source Veeam Server) hosts repositories being imported: $($hosted -join ', ')."
         Write-Warning "  Once it is a managed server of the target, its local console can no longer connect to it."
-        Write-Warning "  The web console and remote consoles still work."
+        Write-Warning "  The web console and remote consoles still work; reinstalling the console on the source is expected to restore it."
     }
 
     try {

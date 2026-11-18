@@ -37,6 +37,11 @@ will mark the first version considered stable / ready to be public-facing.
   import with an error. The wrapper asks once and passes the choice to both
   phases. A legacy flat `output\` export is still picked up.
 ### Fixed
+- `docs/api-reference.md` rewritten from the calls the module actually makes:
+  the token endpoint is `/api/oauth2/token` (not `/api/v1/token`), exports are
+  synchronous, sessions end in `Stopped` with the outcome in `result.result`,
+  the required `x-api-version` header is listed, and the non-Automation
+  endpoints used (credentials, agents, lookups, rescan) are included.
 ### Security
 
 ## [0.1.0] - 2026-06-10

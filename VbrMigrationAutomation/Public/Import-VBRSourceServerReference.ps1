@@ -17,8 +17,8 @@
 #
 # When -IsVSA is set, the source VBR itself is excluded from the auto-add
 # list — VSAs cannot be added as managed servers in another Veeam install.
-# Adding a Windows source VBR warns that its local console will no longer
-# connect to it (the web console and remote consoles still do).
+# Adding a Windows source VBR warns that removing it from the target later
+# uninstalls components from it, and how to repair its local console.
 
 function Import-VBRSourceServerReference {
     param(
@@ -149,8 +149,8 @@ function Import-VBRSourceServerReference {
                     Where-Object { $_ -and $_.hostName -ieq $SourceVBR -and -not $targetRepoNames.Contains([string]$_.name) } |
                     ForEach-Object { $_.name })
         Write-Warning "  '$SourceVBR' (the Source Veeam Server) hosts repositories being imported: $($hosted -join ', ')."
-        Write-Warning "  Once it is a managed server of the target, its local console can no longer connect to it."
-        Write-Warning "  The web console and remote consoles still work; reinstalling the console on the source is expected to restore it."
+        Write-Warning "  Removing it from the target's managed servers later uninstalls Veeam components from it, and its local console can't connect until they are reinstalled."
+        Write-Warning "  To repair: in the source's web console, open its own managed server (This Server) properties and finish the wizard."
     }
 
     try {

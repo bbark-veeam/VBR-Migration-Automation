@@ -60,9 +60,11 @@ will mark the first version considered stable / ready to be public-facing.
 - The Source Veeam Server is added to the target as a managed server only when
   a repository that is actually being imported is hosted on it. Repositories
   skipped by name, and mount servers on the source (moved to the target), no
-  longer cause it. Being managed by another VBR stops the source's local console
-  from connecting to it (web and remote consoles still work); the import now
-  warns when it adds the source.
+  longer cause it. Removing the source from the target's managed servers later
+  uninstalls Veeam components from it, so its local console can't connect
+  until they are reinstalled (finish the wizard on its own *This Server*
+  properties in its web console); the import now warns when it adds the
+  source.
 - Every list lookup on the target now reads all pages, not just the first: the
   skip-if-exists checks (credentials, cloud credentials, managed servers,
   proxies, repositories), credential pickers, agent-job computer resolution and
@@ -82,6 +84,9 @@ will mark the first version considered stable / ready to be public-facing.
   name the target reports for itself, not `-Server` as typed. A VSA lists
   itself in lower case (`vbr.contoso.local`), and mount server names are
   validated case-sensitively ("Mount host [VBR.contoso.local] is not found").
+- README: imported backups of regular backup jobs are never aged out by
+  background retention. Delete them by hand, or map each to a job and delete
+  the job so retention takes over the orphaned backup.
 - README: "Known Gaps" replaced by a fuller **Known Limitations** section
   (versions, unlinked backups and manual mapping, schedules, job types,
   skip-not-merge, first-page existence checks, interactive prompts, source

@@ -57,10 +57,10 @@ Describe 'Import-VBRSourceServerReference' {
         Should -Invoke Invoke-AutomationSession -Times 0
     }
 
-    It 'adds the source VBR when it hosts a repository being imported, and warns about its local console' {
+    It 'adds the source VBR when it hosts a repository being imported, and warns about removing it later' {
         Import-VBRSourceServerReference -Connection $conn -InputPath (New-Export @($onSource)) -SourceVBR 'VBR-Src01.lab.local'
         Should -Invoke Invoke-AutomationSession -Times 1 -ParameterFilter { $Endpoint -eq '/automation/managedServers/import' }
         Should -Invoke Write-Warning -ParameterFilter { $Message -like '*Source Local Repo*' }
-        Should -Invoke Write-Warning -ParameterFilter { $Message -like '*local console can no longer connect*' }
+        Should -Invoke Write-Warning -ParameterFilter { $Message -like '*uninstalls Veeam components*' }
     }
 }

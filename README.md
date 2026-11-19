@@ -484,6 +484,14 @@ for that, and an imported job gets a new ID. Where an imported job should
 continue an existing chain, map it to the backup from the console (Edit job >
 Storage > Map backup). Its next run then continues the chain as an incremental.
 
+Background retention does not apply to imported backups of regular backup
+jobs, so they are never aged out on their own. To retire one, either:
+
+- **Delete it by hand** from **Backups > Disk (Imported)** once it is no longer
+  needed, or
+- **Map it to a job, then delete that job.** The backup becomes orphaned, and
+  background retention then removes it using the job's retention settings.
+
 ### Cleanup of Source-Referencing Objects
 
 The migration imports the Source Veeam Server's full configuration. If any
@@ -502,7 +510,9 @@ Server's inventory:
 2. Repositories hosted on the Source — relocate backups to Target-side storage,
    then remove the Source-hosted repositories.
 3. Proxies on the Source — remove from the managed proxy list.
-4. The Source Veeam Server itself — remove from **Managed Servers**.
+4. The Source Veeam Server itself — remove from **Managed Servers**. This
+   uninstalls Veeam components from it. If the source stays in use, repair it
+   afterwards (see [Infrastructure](#infrastructure) under Known Limitations).
 
 Leaving these in place causes:
 - Failed jobs/health checks that try to contact the decommissioned Source
@@ -568,11 +578,13 @@ Target Veeam Server confirms the migration is complete.
   when a repository being imported is hosted on it, for example a local disk
   repository on the source that the target doesn't already have. Mount and
   gateway servers on the source are moved to the target instead.
-- **Once the Source Veeam Server is a managed server of another VBR, its local
-  console can no longer connect to it.** The web console and remote consoles
-  still work, so the source stays fully manageable from them. Reinstalling only
-  the console component on the source is expected to restore the local
-  console. The import warns before adding it.
+- **Removing the Source Veeam Server from the target's managed servers
+  uninstalls Veeam components from it.** Its local console then sees a version
+  mismatch and can't connect; the web console still works. To repair it, open
+  the source's web console, open the properties of its own managed server
+  (*This Server*) and click through the wizard to the end. That reinstalls the
+  missing components, and the local console connects again. The import warns
+  before adding the source.
   Remove it from the target's managed servers once the migration is validated
   (see [Cleanup of Source-Referencing Objects](#cleanup-of-source-referencing-objects)).
 - **Infrastructure hosted on the Source Veeam Server is not carried over.** Its

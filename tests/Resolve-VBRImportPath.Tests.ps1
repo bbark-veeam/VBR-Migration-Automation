@@ -38,7 +38,7 @@ Describe 'Resolve-VBRImportPath' {
     It 'uses the only export without prompting' {
         Mock Read-Host { throw 'should not prompt' }
         $only = New-TestExport $root 'vbr01_2026-11-18_080235' 'vbr01' '2026-11-18T08:02:35-08:00'
-        New-Item -ItemType Directory -Path (Join-Path $root 'P05') | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $root 'Export-B') | Out-Null
         Resolve-VBRImportPath -OutputRoot $root | Should -Be (Get-Item $only).FullName
     }
 

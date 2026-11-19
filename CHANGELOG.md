@@ -80,8 +80,8 @@ will mark the first version considered stable / ready to be public-facing.
   Veeam Server) that are already managed servers on the target are skipped.
 - Repository mount-server and gateway remapping to the target VBR now uses the
   name the target reports for itself, not `-Server` as typed. A VSA lists
-  itself in lower case (`vbr.hackshack.local`), and mount server names are
-  validated case-sensitively ("Mount host [VBR.HackShack.local] is not found").
+  itself in lower case (`vbr.contoso.local`), and mount server names are
+  validated case-sensitively ("Mount host [VBR.contoso.local] is not found").
 - README: "Known Gaps" replaced by a fuller **Known Limitations** section
   (versions, unlinked backups and manual mapping, schedules, job types,
   skip-not-merge, first-page existence checks, interactive prompts, source

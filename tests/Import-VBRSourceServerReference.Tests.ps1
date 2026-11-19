@@ -20,10 +20,10 @@ BeforeAll {
         $dir
     }
 
-    $script:onSource = @{ name = 'Source Local Repo'; hostName = 'Win-VBR.lab.local'
-                          mountServer = @{ windows = @{ mountServerName = 'Win-VBR.lab.local' } } }
+    $script:onSource = @{ name = 'Source Local Repo'; hostName = 'VBR-Src01.lab.local'
+                          mountServer = @{ windows = @{ mountServerName = 'VBR-Src01.lab.local' } } }
     $script:mountOnly = @{ name = 'Hardened Repo'; hostName = 'Repo.lab.local'
-                           mountServer = @{ windows = @{ mountServerName = 'Win-VBR.lab.local' } } }
+                           mountServer = @{ windows = @{ mountServerName = 'VBR-Src01.lab.local' } } }
 }
 
 Describe 'Import-VBRSourceServerReference' {
@@ -39,26 +39,26 @@ Describe 'Import-VBRSourceServerReference' {
 
     It 'does not add the source VBR when it is only a mount server (remapped to the target)' {
         Mock Read-Host { throw 'should not prompt' }
-        Import-VBRSourceServerReference -Connection $conn -InputPath (New-Export @($mountOnly)) -SourceVBR 'Win-VBR.lab.local'
+        Import-VBRSourceServerReference -Connection $conn -InputPath (New-Export @($mountOnly)) -SourceVBR 'VBR-Src01.lab.local'
         Should -Invoke Invoke-AutomationSession -Times 0
     }
 
     It 'ignores repositories whose name is already on the target' {
         Mock Get-VBRPaginatedData { @([pscustomobject]@{ name = 'source local repo' }) } -ParameterFilter { $Endpoint -like '*repositories' }
         Mock Read-Host { throw 'should not prompt' }
-        Import-VBRSourceServerReference -Connection $conn -InputPath (New-Export @($onSource)) -SourceVBR 'Win-VBR.lab.local'
+        Import-VBRSourceServerReference -Connection $conn -InputPath (New-Export @($onSource)) -SourceVBR 'VBR-Src01.lab.local'
         Should -Invoke Invoke-AutomationSession -Times 0
     }
 
     It 'skips a referenced host that is already a managed server on the target (any case)' {
-        Mock Get-VBRPaginatedData { @([pscustomobject]@{ name = 'win-vbr.lab.local' }) } -ParameterFilter { $Endpoint -like '*managedServers' }
+        Mock Get-VBRPaginatedData { @([pscustomobject]@{ name = 'vbr-src01.lab.local' }) } -ParameterFilter { $Endpoint -like '*managedServers' }
         Mock Read-Host { throw 'should not prompt' }
-        Import-VBRSourceServerReference -Connection $conn -InputPath (New-Export @($onSource)) -SourceVBR 'Win-VBR.lab.local'
+        Import-VBRSourceServerReference -Connection $conn -InputPath (New-Export @($onSource)) -SourceVBR 'VBR-Src01.lab.local'
         Should -Invoke Invoke-AutomationSession -Times 0
     }
 
     It 'adds the source VBR when it hosts a repository being imported, and warns about its local console' {
-        Import-VBRSourceServerReference -Connection $conn -InputPath (New-Export @($onSource)) -SourceVBR 'Win-VBR.lab.local'
+        Import-VBRSourceServerReference -Connection $conn -InputPath (New-Export @($onSource)) -SourceVBR 'VBR-Src01.lab.local'
         Should -Invoke Invoke-AutomationSession -Times 1 -ParameterFilter { $Endpoint -eq '/automation/managedServers/import' }
         Should -Invoke Write-Warning -ParameterFilter { $Message -like '*Source Local Repo*' }
         Should -Invoke Write-Warning -ParameterFilter { $Message -like '*local console can no longer connect*' }

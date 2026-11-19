@@ -10,11 +10,11 @@ BeforeAll {
     function New-Export([object[]] $LinuxHosts) {
         $dir = Join-Path $TestDrive ([guid]::NewGuid())
         New-Item -ItemType Directory -Path $dir | Out-Null
-        @{ windowsHosts = @(@{ type = 'WindowsHost'; name = 'Win-Repo.lab.local'
+        @{ windowsHosts = @(@{ type = 'WindowsHost'; name = 'Repo-01.lab.local'
                                credentials = @{ credentialsName = 'lab\admin'; credentialsTag = 'c1' } })
            linuxHosts = $LinuxHosts; viHosts = @(); cloudDirectorHosts = @() } |
             ConvertTo-Json -Depth 10 | Set-Content (Join-Path $dir 'ManagedServers.json')
-        @{ WindowsLocalRepositories  = @(@{ name = 'Win-Repo'; hostName = 'Win-Repo.lab.local' })
+        @{ WindowsLocalRepositories  = @(@{ name = 'Repo-01'; hostName = 'Repo-01.lab.local' })
            LinuxHardenedRepositories = @(@{ name = 'Hardened Repo'; hostName = 'Repo.lab.local' }) } |
             ConvertTo-Json -Depth 10 | Set-Content (Join-Path $dir 'Repositories.json')
         $dir

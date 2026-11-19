@@ -9,8 +9,8 @@ BeforeAll {
 Describe 'Get-VBRDefaultExportPath' {
     It 'names the folder server_yyyy-MM-dd_HHmmss under output' {
         $ts     = [datetime]'2026-11-18T08:02:35'
-        $result = Get-VBRDefaultExportPath -Server 'PG-Upgrade-Test.HackShack.local' -Timestamp $ts
-        $expect = Join-Path (Join-Path (Get-Location).Path 'output') 'PG-Upgrade-Test.HackShack.local_2026-11-18_080235'
+        $result = Get-VBRDefaultExportPath -Server 'VBR-Src02.contoso.local' -Timestamp $ts
+        $expect = Join-Path (Join-Path (Get-Location).Path 'output') 'VBR-Src02.contoso.local_2026-11-18_080235'
         $result | Should -Be $expect
     }
 

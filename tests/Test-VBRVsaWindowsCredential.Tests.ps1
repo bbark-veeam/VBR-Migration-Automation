@@ -14,7 +14,7 @@ BeforeAll {
     function New-Export([string] $HostUser, [string[]] $ExportedUsers) {
         $dir = Join-Path $TestDrive ([guid]::NewGuid())
         New-Item -ItemType Directory -Path $dir | Out-Null
-        @{ windowsHosts = @(@{ type = 'WindowsHost'; name = 'Win-Repo.lab.local'
+        @{ windowsHosts = @(@{ type = 'WindowsHost'; name = 'Repo-01.lab.local'
                                credentials = @{ credentialsName = $HostUser; credentialsTag = 'old-tag' } })
            linuxHosts = @(); viHosts = @(); cloudDirectorHosts = @() } |
             ConvertTo-Json -Depth 10 | Set-Content (Join-Path $dir 'ManagedServers.json')
@@ -33,8 +33,8 @@ Describe 'Test-VBRVsaCredentialFormat' {
     ) { Test-VBRVsaCredentialFormat $u | Should -BeTrue }
 
     It 'rejects <u>' -ForEach @(
-        @{ u = 'hackshack\administrator' }
-        @{ u = 'WIN-VBR\Administrator' }
+        @{ u = 'contoso\administrator' }
+        @{ u = 'VBR-SRC01\Administrator' }
         @{ u = 'administrator' }
         @{ u = 'root' }
         @{ u = 'admin@localhost' }
@@ -71,7 +71,7 @@ Describe 'Test-VBRVsaWindowsCredential' {
     }
 
     It 'ignores Windows hosts that are already on the target' {
-        Mock Get-VBRPaginatedData { @([pscustomobject]@{ name = 'win-repo.lab.local' }) } -ParameterFilter { $Endpoint -like '*managedServers' }
+        Mock Get-VBRPaginatedData { @([pscustomobject]@{ name = 'repo-01.lab.local' }) } -ParameterFilter { $Endpoint -like '*managedServers' }
         Mock Get-VBRPaginatedData { throw 'credentials should not be checked' } -ParameterFilter { $Endpoint -eq '/credentials' }
         Mock Read-Host { throw 'should not prompt' }
         { Test-VBRVsaWindowsCredential -Connection (New-Conn 'Linux') -InputPath (New-Export 'lab\admin' @('lab\admin')) } |
@@ -148,7 +148,7 @@ Describe 'Resolve-VBRVsaWindowsCredential' {
     BeforeEach {
         Mock Write-Host { }
         $script:payload = [pscustomobject]@{ windowsHosts = @(
-            [pscustomobject]@{ name = 'Win-Repo.lab.local'
+            [pscustomobject]@{ name = 'Repo-01.lab.local'
                                credentials = [pscustomobject]@{ credentialsName = 'lab\admin'; credentialsTag = 'old-tag' } }
             [pscustomobject]@{ name = 'ok.lab.local'
                                credentials = [pscustomobject]@{ credentialsName = 'svc@lab.local'; credentialsTag = 'keep' } }) }
@@ -220,8 +220,8 @@ Describe 'Select-VBRVsaCredential' {
     It 'Q aborts, naming the host' {
         Mock Get-VBRPaginatedData { @([pscustomobject]@{ username = 'old@lab.local'; uniqueId = 'u-old' }) }
         Mock Read-Host { 'q' }
-        { Select-VBRVsaCredential -Connection (New-Conn 'Linux') -HostName 'Win-Repo.lab.local' } |
-            Should -Throw -ExpectedMessage "*aborted*Win-Repo.lab.local*"
+        { Select-VBRVsaCredential -Connection (New-Conn 'Linux') -HostName 'Repo-01.lab.local' } |
+            Should -Throw -ExpectedMessage "*aborted*Repo-01.lab.local*"
     }
 
     It 'still offers N, M and Q when no accepted credential exists' {
